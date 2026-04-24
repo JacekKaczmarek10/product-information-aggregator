@@ -1,0 +1,31 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: product-aggregator
+  threads:
+    virtual:
+      enabled: true   # Java 21+ Loom; on Java 17 this is a no-op and we fall back to the custom executor
+
+aggregator:
+  timeout-ms: 300        # overall budget for all upstream calls
+  catalog-timeout-ms: 150
+  pricing-timeout-ms: 180
+  availability-timeout-ms: 200
+  customer-timeout-ms: 160
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
