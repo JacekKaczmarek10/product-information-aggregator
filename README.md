@@ -25,6 +25,13 @@ The service starts on **http://localhost:8080**.
 mvn test
 ```
 
+### Run with Docker
+
+```bash
+docker build -t product-aggregator .
+docker run --rm -p 8080:8080 product-aggregator
+```
+
 ### Try it out
 
 ```bash
@@ -88,11 +95,16 @@ Swagger UI is available at: **http://localhost:8080/swagger-ui.html**
     "pricingAvailable": true,
     "availabilityKnown": true,
     "personalized": true
-  }
+  },
+  "degradedReasons": []
 }
 ```
 
 When an optional service is unavailable, its field is **omitted** from the response and the corresponding `dataStatus` flag is `false`. Clients must check `dataStatus` before rendering price or stock information.
+Additionally, `degradedReasons` provides explicit machine-readable reasons such as:
+- `PRICING_UNAVAILABLE`
+- `AVAILABILITY_UNKNOWN`
+- `NON_PERSONALIZED`
 
 ---
 
@@ -133,6 +145,11 @@ The service now also adds:
 - Micrometer metrics:
   - `aggregator.upstream.calls{service,status}`
   - `aggregator.upstream.latency{service,status}`
+
+Operational target used for this assignment:
+- P95 latency under normal conditions: **<250ms**
+- Hard failure budget for required data (catalog): **<0.1%**
+- Partial response budget for optional dependencies: tolerated and explicitly visible in payload
 
 ### 4. No customer call when no customerId
 
