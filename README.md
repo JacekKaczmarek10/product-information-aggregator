@@ -8,13 +8,13 @@ A backend service that combines data from multiple internal services into a sing
 
 ### Prerequisites
 
-- Java 17+
-- Maven 3.8+ (or use the included `mvnw` wrapper)
+- Java 25 (Spring Boot 4.0 requires Java 17+, this project targets 25)
+- Maven 3.9.11+
 
 ### Start the service
 
 ```bash
-./mvnw spring-boot:run
+mvn spring-boot:run
 ```
 
 The service starts on **http://localhost:8080**.
@@ -22,7 +22,7 @@ The service starts on **http://localhost:8080**.
 ### Run tests
 
 ```bash
-./mvnw test
+mvn test
 ```
 
 ### Try it out
