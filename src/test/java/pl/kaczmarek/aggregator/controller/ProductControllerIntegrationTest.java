@@ -1,7 +1,7 @@
 package pl.kaczmarek.aggregator.controller;
 
-import com.example.aggregator.model.upstream.*;
-import com.example.aggregator.service.upstream.*;
+import pl.kaczmarek.aggregator.model.upstream.*;
+import  pl.kaczmarek.aggregator.service.upstream.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
