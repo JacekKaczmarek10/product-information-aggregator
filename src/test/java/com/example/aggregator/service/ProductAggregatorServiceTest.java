@@ -5,6 +5,7 @@ import com.example.aggregator.exception.CatalogUnavailableException;
 import com.example.aggregator.model.response.ProductResponse;
 import com.example.aggregator.model.upstream.*;
 import com.example.aggregator.service.upstream.*;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,7 +59,7 @@ class ProductAggregatorServiceTest {
         props.setCustomerTimeoutMs(500);
         service = new ProductAggregatorService(
                 catalogClient, pricingClient, availabilityClient, customerClient,
-                Executors.newCachedThreadPool(), props
+                Executors.newCachedThreadPool(), props, new SimpleMeterRegistry()
         );
     }
 

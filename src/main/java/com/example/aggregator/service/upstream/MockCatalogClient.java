@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -15,7 +14,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * Typical latency: ~50ms  |  Reliability: 99.9%
  */
 @Component
-public class MockCatalogClient {
+public class MockCatalogClient implements CatalogClient {
 
     private static final Logger log = LoggerFactory.getLogger(MockCatalogClient.class);
     private static final double FAILURE_RATE = 0.001; // 0.1%
@@ -37,13 +36,13 @@ public class MockCatalogClient {
             )
     );
 
+    @Override
     public CatalogData fetchProduct(String productId, String market) {
         simulateLatency(BASE_LATENCY_MS, JITTER_MS);
         simulateFailure("CatalogService", FAILURE_RATE);
 
         log.debug("CatalogService: fetched product={} market={}", productId, market);
 
-        String lang = market.contains("-") ? market.split("-")[0] : "en";
         Map<String, String> localizedNamesForMarket = LOCALIZED_NAMES.getOrDefault(market, Map.of());
         String localizedName = localizedNamesForMarket.getOrDefault(productId,
                 "Hydraulic Pump System " + productId);

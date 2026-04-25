@@ -10,11 +10,6 @@ import java.util.concurrent.Executors;
 @Configuration
 public class AggregatorConfig {
 
-    /**
-     * A dedicated thread pool for upstream calls.
-     * On Java 21 we'd use Executors.newVirtualThreadPerTaskExecutor() instead.
-     * On Java 17 we use a cached pool so that parallel upstream calls don't block each other.
-     */
     @Bean(destroyMethod = "shutdown")
     public ExecutorService upstreamExecutor() {
         return Executors.newCachedThreadPool();

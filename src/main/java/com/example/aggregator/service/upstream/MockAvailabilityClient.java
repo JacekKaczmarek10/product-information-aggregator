@@ -13,7 +13,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * Typical latency: ~100ms  |  Reliability: 98%
  */
 @Component
-public class MockAvailabilityClient {
+public class MockAvailabilityClient implements AvailabilityClient {
 
     private static final Logger log = LoggerFactory.getLogger(MockAvailabilityClient.class);
     private static final double FAILURE_RATE = 0.02; // 2%
@@ -37,6 +37,7 @@ public class MockAvailabilityClient {
             "sv-SE", "3-4 business days"
     );
 
+    @Override
     public AvailabilityData fetchAvailability(String productId, String market) {
         MockCatalogClient.simulateLatency(BASE_LATENCY_MS, JITTER_MS);
         MockCatalogClient.simulateFailure("AvailabilityService", FAILURE_RATE);

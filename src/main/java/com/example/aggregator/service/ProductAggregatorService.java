@@ -6,6 +6,7 @@ import com.example.aggregator.model.response.ProductResponse;
 import com.example.aggregator.model.response.ProductResponse.*;
 import com.example.aggregator.model.upstream.*;
 import com.example.aggregator.service.upstream.*;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -28,26 +29,29 @@ public class ProductAggregatorService {
 
     private static final Logger log = LoggerFactory.getLogger(ProductAggregatorService.class);
 
-    private final MockCatalogClient catalogClient;
-    private final MockPricingClient pricingClient;
-    private final MockAvailabilityClient availabilityClient;
-    private final MockCustomerClient customerClient;
+    private final CatalogClient catalogClient;
+    private final PricingClient pricingClient;
+    private final AvailabilityClient availabilityClient;
+    private final CustomerClient customerClient;
     private final ExecutorService executor;
     private final AggregatorProperties props;
+    private final MeterRegistry meterRegistry;
 
     public ProductAggregatorService(
-            MockCatalogClient catalogClient,
-            MockPricingClient pricingClient,
-            MockAvailabilityClient availabilityClient,
-            MockCustomerClient customerClient,
+            CatalogClient catalogClient,
+            PricingClient pricingClient,
+            AvailabilityClient availabilityClient,
+            CustomerClient customerClient,
             ExecutorService executor,
-            AggregatorProperties props) {
+            AggregatorProperties props,
+            MeterRegistry meterRegistry) {
         this.catalogClient = catalogClient;
         this.pricingClient = pricingClient;
         this.availabilityClient = availabilityClient;
         this.customerClient = customerClient;
         this.executor = executor;
         this.props = props;
+        this.meterRegistry = meterRegistry;
     }
 
     public ProductResponse aggregate(String productId, String market, String customerId) {
@@ -75,15 +79,26 @@ public class ProductAggregatorService {
 
         // --- Resolve catalog (required) ---
         CatalogData catalog;
+        long catalogStartNanos = System.nanoTime();
         try {
             catalog = catalogFuture.get(props.getCatalogTimeoutMs() + 10L, TimeUnit.MILLISECONDS);
+            recordUpstreamMetrics("catalog", "success", catalogStartNanos);
         } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof TimeoutException) {
+                recordUpstreamMetrics("catalog", "timeout", catalogStartNanos);
+                log.error("CatalogService timed out for product={}", productId);
+                throw new CatalogUnavailableException(productId, cause);
+            }
+            recordUpstreamMetrics("catalog", "error", catalogStartNanos);
             log.error("CatalogService failed for product={}: {}", productId, e.getCause().getMessage());
-            throw new CatalogUnavailableException(productId, e.getCause());
+            throw new CatalogUnavailableException(productId, cause);
         } catch (TimeoutException e) {
+            recordUpstreamMetrics("catalog", "timeout", catalogStartNanos);
             log.error("CatalogService timed out for product={}", productId);
             throw new CatalogUnavailableException(productId, e);
         } catch (InterruptedException e) {
+            recordUpstreamMetrics("catalog", "interrupted", catalogStartNanos);
             Thread.currentThread().interrupt();
             throw new CatalogUnavailableException(productId, e);
         }
@@ -97,18 +112,25 @@ public class ProductAggregatorService {
     }
 
     private <T> Optional<T> resolveOptional(CompletableFuture<T> future, String serviceName, String productId) {
+        String serviceTag = normalizeServiceTag(serviceName);
+        long startNanos = System.nanoTime();
         try {
-            return Optional.ofNullable(future.get());
+            Optional<T> result = Optional.ofNullable(future.get());
+            recordUpstreamMetrics(serviceTag, "success", startNanos);
+            return result;
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
             if (cause instanceof TimeoutException) {
+                recordUpstreamMetrics(serviceTag, "timeout", startNanos);
                 log.warn("{} timed out for product={}", serviceName, productId);
                 future.cancel(true);
                 return Optional.empty();
             }
+            recordUpstreamMetrics(serviceTag, "error", startNanos);
             log.warn("{} failed for product={}: {}", serviceName, productId, cause.getMessage());
             return Optional.empty();
         } catch (InterruptedException e) {
+            recordUpstreamMetrics(serviceTag, "interrupted", startNanos);
             Thread.currentThread().interrupt();
             return Optional.empty();
         }
@@ -162,5 +184,25 @@ public class ProductAggregatorService {
     private String extractLanguage(String market) {
         // "nl-NL" -> "nl", "de-DE" -> "de", etc.
         return market.contains("-") ? market.split("-")[0] : market;
+    }
+
+    private String normalizeServiceTag(String serviceName) {
+        return serviceName
+                .replace("Service", "")
+                .toLowerCase();
+    }
+
+    private void recordUpstreamMetrics(String service, String status, long startNanos) {
+        long durationNanos = System.nanoTime() - startNanos;
+        meterRegistry.timer(
+                "aggregator.upstream.latency",
+                "service", service,
+                "status", status
+        ).record(durationNanos, TimeUnit.NANOSECONDS);
+        meterRegistry.counter(
+                "aggregator.upstream.calls",
+                "service", service,
+                "status", status
+        ).increment();
     }
 }

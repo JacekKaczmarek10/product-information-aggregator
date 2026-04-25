@@ -15,7 +15,7 @@ import java.util.Map;
  * Typical latency: ~80ms  |  Reliability: 99.5%
  */
 @Component
-public class MockPricingClient {
+public class MockPricingClient implements PricingClient {
 
     private static final Logger log = LoggerFactory.getLogger(MockPricingClient.class);
     private static final double FAILURE_RATE = 0.005; // 0.5%
@@ -35,7 +35,6 @@ public class MockPricingClient {
             "PROD-002", new BigDecimal("24.50")
     );
 
-    // Approximate FX multipliers (not production-grade)
     private static final Map<String, BigDecimal> FX = Map.of(
             "EUR", BigDecimal.ONE,
             "PLN", new BigDecimal("4.25"),
@@ -43,6 +42,7 @@ public class MockPricingClient {
             "SEK", new BigDecimal("11.40")
     );
 
+    @Override
     public PricingData fetchPricing(String productId, String market, String customerId) {
         MockCatalogClient.simulateLatency(BASE_LATENCY_MS, JITTER_MS);
         MockCatalogClient.simulateFailure("PricingService", FAILURE_RATE);
@@ -54,7 +54,6 @@ public class MockPricingClient {
         BigDecimal baseEur = BASE_PRICES_EUR.getOrDefault(productId, new BigDecimal("199.99"));
         BigDecimal basePrice = baseEur.multiply(fx).setScale(2, RoundingMode.HALF_UP);
 
-        // Customers get up to 15% discount based on their ID hash (deterministic mock)
         BigDecimal discountPct = customerId != null
                 ? BigDecimal.valueOf(Math.abs(customerId.hashCode() % 16))
                 : BigDecimal.ZERO;

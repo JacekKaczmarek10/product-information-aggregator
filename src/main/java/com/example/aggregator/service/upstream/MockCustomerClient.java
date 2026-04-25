@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Mock Customer Service.
@@ -14,19 +13,14 @@ import java.util.Map;
  * Only called when a customerId is provided.
  */
 @Component
-public class MockCustomerClient {
+public class MockCustomerClient implements CustomerClient {
 
     private static final Logger log = LoggerFactory.getLogger(MockCustomerClient.class);
-    private static final double FAILURE_RATE = 0.01; // 1%
+    private static final double FAILURE_RATE = 0.01;
     private static final int BASE_LATENCY_MS = 50;
     private static final int JITTER_MS = 20;
 
-    private static final Map<String, String> CUSTOMER_SEGMENTS = Map.of(
-            "dealer", "DEALER",
-            "workshop", "WORKSHOP",
-            "enterprise", "ENTERPRISE"
-    );
-
+    @Override
     public CustomerData fetchCustomer(String customerId) {
         MockCatalogClient.simulateLatency(BASE_LATENCY_MS, JITTER_MS);
         MockCatalogClient.simulateFailure("CustomerService", FAILURE_RATE);
