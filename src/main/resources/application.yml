@@ -6,10 +6,10 @@ spring:
     name: product-aggregator
   threads:
     virtual:
-      enabled: true   # Java 21+ Loom; on Java 17 this is a no-op and we fall back to the custom executor
+      enabled: true
 
 aggregator:
-  timeout-ms: 300        # overall budget for all upstream calls
+  timeout-ms: 300
   catalog-timeout-ms: 150
   pricing-timeout-ms: 180
   availability-timeout-ms: 200

@@ -4,10 +4,10 @@ import com.example.aggregator.model.upstream.*;
 import com.example.aggregator.service.upstream.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -26,10 +26,10 @@ class ProductControllerIntegrationTest {
     @Autowired
     MockMvc mockMvc;
 
-    @MockBean MockCatalogClient catalogClient;
-    @MockBean MockPricingClient pricingClient;
-    @MockBean MockAvailabilityClient availabilityClient;
-    @MockBean MockCustomerClient customerClient;
+    @MockitoBean MockCatalogClient catalogClient;
+    @MockitoBean MockPricingClient pricingClient;
+    @MockitoBean MockAvailabilityClient availabilityClient;
+    @MockitoBean MockCustomerClient customerClient;
 
     private static final CatalogData CATALOG = new CatalogData(
             "PROD-001", "Pump", "A pump", "Hydraulics", "AgroTech",

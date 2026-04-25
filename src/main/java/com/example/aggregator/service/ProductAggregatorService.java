@@ -100,11 +100,13 @@ public class ProductAggregatorService {
         try {
             return Optional.ofNullable(future.get());
         } catch (ExecutionException e) {
-            log.warn("{} failed for product={}: {}", serviceName, productId, e.getCause().getMessage());
-            return Optional.empty();
-        } catch (TimeoutException e) {
-            log.warn("{} timed out for product={}", serviceName, productId);
-            future.cancel(true);
+            Throwable cause = e.getCause();
+            if (cause instanceof TimeoutException) {
+                log.warn("{} timed out for product={}", serviceName, productId);
+                future.cancel(true);
+                return Optional.empty();
+            }
+            log.warn("{} failed for product={}: {}", serviceName, productId, cause.getMessage());
             return Optional.empty();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
