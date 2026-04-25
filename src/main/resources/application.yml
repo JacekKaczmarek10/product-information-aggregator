@@ -14,6 +14,31 @@ aggregator:
   pricing-timeout-ms: 180
   availability-timeout-ms: 200
   customer-timeout-ms: 160
+  optional-failure-threshold: 3
+  optional-circuit-open-ms: 30000
+  markets:
+    nl-NL: { currency: EUR, warehouse: "Amsterdam, NL", delivery: "1-2 business days", language: nl, fx: 1.00 }
+    de-DE: { currency: EUR, warehouse: "Frankfurt, DE", delivery: "1-2 business days", language: de, fx: 1.00 }
+    pl-PL: { currency: PLN, warehouse: "Warsaw, PL", delivery: "2-3 business days", language: pl, fx: 4.25 }
+    en-GB: { currency: GBP, warehouse: "London, GB", delivery: "2-3 business days", language: en, fx: 0.86 }
+    sv-SE: { currency: SEK, warehouse: "Stockholm, SE", delivery: "3-4 business days", language: sv, fx: 11.40 }
+    fr-FR: { currency: EUR, warehouse: "Lyon, FR", delivery: "1-2 business days", language: fr, fx: 1.00 }
+    es-ES: { currency: EUR, warehouse: "Madrid, ES", delivery: "2-3 business days", language: es, fx: 1.00 }
+    it-IT: { currency: EUR, warehouse: "Milan, IT", delivery: "2-3 business days", language: it, fx: 1.00 }
+    pt-PT: { currency: EUR, warehouse: "Lisbon, PT", delivery: "2-3 business days", language: pt, fx: 1.00 }
+    cs-CZ: { currency: CZK, warehouse: "Prague, CZ", delivery: "2-3 business days", language: cs, fx: 25.10 }
+    sk-SK: { currency: EUR, warehouse: "Bratislava, SK", delivery: "2-3 business days", language: sk, fx: 1.00 }
+    hu-HU: { currency: HUF, warehouse: "Budapest, HU", delivery: "2-3 business days", language: hu, fx: 396.00 }
+    ro-RO: { currency: RON, warehouse: "Bucharest, RO", delivery: "3-4 business days", language: ro, fx: 4.97 }
+    bg-BG: { currency: BGN, warehouse: "Sofia, BG", delivery: "3-4 business days", language: bg, fx: 1.96 }
+    hr-HR: { currency: EUR, warehouse: "Zagreb, HR", delivery: "2-3 business days", language: hr, fx: 1.00 }
+    sl-SI: { currency: EUR, warehouse: "Ljubljana, SI", delivery: "2-3 business days", language: sl, fx: 1.00 }
+    da-DK: { currency: DKK, warehouse: "Copenhagen, DK", delivery: "2-3 business days", language: da, fx: 7.46 }
+    fi-FI: { currency: EUR, warehouse: "Helsinki, FI", delivery: "3-4 business days", language: fi, fx: 1.00 }
+    et-EE: { currency: EUR, warehouse: "Tallinn, EE", delivery: "3-4 business days", language: et, fx: 1.00 }
+    lv-LV: { currency: EUR, warehouse: "Riga, LV", delivery: "3-4 business days", language: lv, fx: 1.00 }
+    lt-LT: { currency: EUR, warehouse: "Vilnius, LT", delivery: "3-4 business days", language: lt, fx: 1.00 }
+    no-NO: { currency: NOK, warehouse: "Oslo, NO", delivery: "3-4 business days", language: no, fx: 11.80 }
 
 management:
   endpoints:

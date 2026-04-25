@@ -1,5 +1,7 @@
 package com.example.aggregator.service.upstream;
 
+import com.example.aggregator.config.AggregatorConfig.AggregatorProperties;
+import com.example.aggregator.config.AggregatorConfig.MarketSettings;
 import com.example.aggregator.model.upstream.CatalogData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +37,11 @@ public class MockCatalogClient implements CatalogClient {
                     "PROD-002", "Filtr dieselowy uniwersalny"
             )
     );
+    private final AggregatorProperties props;
+
+    public MockCatalogClient(AggregatorProperties props) {
+        this.props = props;
+    }
 
     @Override
     public CatalogData fetchProduct(String productId, String market) {
@@ -44,8 +51,9 @@ public class MockCatalogClient implements CatalogClient {
         log.debug("CatalogService: fetched product={} market={}", productId, market);
 
         Map<String, String> localizedNamesForMarket = LOCALIZED_NAMES.getOrDefault(market, Map.of());
+        String language = props.getMarkets().getOrDefault(market, new MarketSettings()).getLanguage();
         String localizedName = localizedNamesForMarket.getOrDefault(productId,
-                "Hydraulic Pump System " + productId);
+                localizedFallbackName(language, productId));
 
         return new CatalogData(
                 productId,
@@ -66,6 +74,17 @@ public class MockCatalogClient implements CatalogClient {
                 localizedName,
                 "High-performance hydraulic pump for agricultural and construction machinery."
         );
+    }
+
+    private String localizedFallbackName(String language, String productId) {
+        return switch (language) {
+            case "de" -> "Hydraulikpumpensystem " + productId;
+            case "pl" -> "Układ pompy hydraulicznej " + productId;
+            case "fr" -> "Systeme de pompe hydraulique " + productId;
+            case "es" -> "Sistema de bomba hidraulica " + productId;
+            case "it" -> "Sistema pompa idraulica " + productId;
+            default -> "Hydraulic Pump System " + productId;
+        };
     }
 
     static void simulateLatency(int baseMs, int jitterMs) {

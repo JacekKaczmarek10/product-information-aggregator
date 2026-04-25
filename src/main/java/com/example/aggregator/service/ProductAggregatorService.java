@@ -11,8 +11,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.*;
+import java.util.function.Supplier;
 
 /**
  * Core aggregation logic.
@@ -36,6 +38,7 @@ public class ProductAggregatorService {
     private final ExecutorService executor;
     private final AggregatorProperties props;
     private final MeterRegistry meterRegistry;
+    private final Map<String, OptionalServiceCircuitBreaker> optionalBreakers;
 
     public ProductAggregatorService(
             CatalogClient catalogClient,
@@ -52,6 +55,11 @@ public class ProductAggregatorService {
         this.executor = executor;
         this.props = props;
         this.meterRegistry = meterRegistry;
+        this.optionalBreakers = Map.of(
+                "pricing", new OptionalServiceCircuitBreaker(props.getOptionalFailureThreshold(), props.getOptionalCircuitOpenMs()),
+                "availability", new OptionalServiceCircuitBreaker(props.getOptionalFailureThreshold(), props.getOptionalCircuitOpenMs()),
+                "customer", new OptionalServiceCircuitBreaker(props.getOptionalFailureThreshold(), props.getOptionalCircuitOpenMs())
+        );
     }
 
     public ProductResponse aggregate(String productId, String market, String customerId) {
@@ -62,19 +70,28 @@ public class ProductAggregatorService {
                 .supplyAsync(() -> catalogClient.fetchProduct(productId, market), executor)
                 .orTimeout(props.getCatalogTimeoutMs(), TimeUnit.MILLISECONDS);
 
-        CompletableFuture<PricingData> pricingFuture = CompletableFuture
-                .supplyAsync(() -> pricingClient.fetchPricing(productId, market, customerId), executor)
-                .orTimeout(props.getPricingTimeoutMs(), TimeUnit.MILLISECONDS);
+        CompletableFuture<PricingData> pricingFuture = callOptional(
+                "pricing",
+                () -> pricingClient.fetchPricing(productId, market, customerId),
+                props.getPricingTimeoutMs(),
+                productId
+        );
 
-        CompletableFuture<AvailabilityData> availabilityFuture = CompletableFuture
-                .supplyAsync(() -> availabilityClient.fetchAvailability(productId, market), executor)
-                .orTimeout(props.getAvailabilityTimeoutMs(), TimeUnit.MILLISECONDS);
+        CompletableFuture<AvailabilityData> availabilityFuture = callOptional(
+                "availability",
+                () -> availabilityClient.fetchAvailability(productId, market),
+                props.getAvailabilityTimeoutMs(),
+                productId
+        );
 
         // Customer call is only made when a customerId is present
         CompletableFuture<CustomerData> customerFuture = (customerId != null && !customerId.isBlank())
-                ? CompletableFuture
-                        .supplyAsync(() -> customerClient.fetchCustomer(customerId), executor)
-                        .orTimeout(props.getCustomerTimeoutMs(), TimeUnit.MILLISECONDS)
+                ? callOptional(
+                        "customer",
+                        () -> customerClient.fetchCustomer(customerId),
+                        props.getCustomerTimeoutMs(),
+                        productId
+                )
                 : CompletableFuture.completedFuture(null);
 
         // --- Resolve catalog (required) ---
@@ -104,19 +121,19 @@ public class ProductAggregatorService {
         }
 
         // --- Resolve optional services (best-effort) ---
-        Optional<PricingData> pricing = resolveOptional(pricingFuture, "PricingService", productId);
-        Optional<AvailabilityData> availability = resolveOptional(availabilityFuture, "AvailabilityService", productId);
-        Optional<CustomerData> customer = resolveOptional(customerFuture, "CustomerService", productId);
+        Optional<PricingData> pricing = resolveOptional(pricingFuture, "PricingService", "pricing", productId);
+        Optional<AvailabilityData> availability = resolveOptional(availabilityFuture, "AvailabilityService", "availability", productId);
+        Optional<CustomerData> customer = resolveOptional(customerFuture, "CustomerService", "customer", productId);
 
         return buildResponse(productId, market, language, catalog, pricing, availability, customer);
     }
 
-    private <T> Optional<T> resolveOptional(CompletableFuture<T> future, String serviceName, String productId) {
-        String serviceTag = normalizeServiceTag(serviceName);
+    private <T> Optional<T> resolveOptional(CompletableFuture<T> future, String serviceName, String serviceTag, String productId) {
         long startNanos = System.nanoTime();
         try {
             Optional<T> result = Optional.ofNullable(future.get());
             recordUpstreamMetrics(serviceTag, "success", startNanos);
+            optionalBreakers.get(serviceTag).recordSuccess();
             return result;
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
@@ -124,10 +141,12 @@ public class ProductAggregatorService {
                 recordUpstreamMetrics(serviceTag, "timeout", startNanos);
                 log.warn("{} timed out for product={}", serviceName, productId);
                 future.cancel(true);
+                optionalBreakers.get(serviceTag).recordFailure();
                 return Optional.empty();
             }
             recordUpstreamMetrics(serviceTag, "error", startNanos);
             log.warn("{} failed for product={}: {}", serviceName, productId, cause.getMessage());
+            optionalBreakers.get(serviceTag).recordFailure();
             return Optional.empty();
         } catch (InterruptedException e) {
             recordUpstreamMetrics(serviceTag, "interrupted", startNanos);
@@ -186,10 +205,25 @@ public class ProductAggregatorService {
         return market.contains("-") ? market.split("-")[0] : market;
     }
 
-    private String normalizeServiceTag(String serviceName) {
-        return serviceName
-                .replace("Service", "")
-                .toLowerCase();
+    private <T> CompletableFuture<T> callOptional(
+            String serviceTag,
+            Supplier<T> supplier,
+            int timeoutMs,
+            String productId) {
+        OptionalServiceCircuitBreaker breaker = optionalBreakers.get(serviceTag);
+        if (!breaker.isCallPermitted()) {
+            log.warn("Skipping {} call for product={} due to open circuit", serviceTag, productId);
+            meterRegistry.counter(
+                    "aggregator.upstream.calls",
+                    "service", serviceTag,
+                    "status", "short_circuited"
+            ).increment();
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return CompletableFuture
+                .supplyAsync(supplier, executor)
+                .orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
     private void recordUpstreamMetrics(String service, String status, long startNanos) {

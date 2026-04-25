@@ -1,5 +1,7 @@
 package com.example.aggregator.service.upstream;
 
+import com.example.aggregator.config.AggregatorConfig.AggregatorProperties;
+import com.example.aggregator.config.AggregatorConfig.MarketSettings;
 import com.example.aggregator.model.upstream.PricingData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,25 +24,16 @@ public class MockPricingClient implements PricingClient {
     private static final int BASE_LATENCY_MS = 70;
     private static final int JITTER_MS = 20;
 
-    private static final Map<String, String> MARKET_CURRENCY = Map.of(
-            "nl-NL", "EUR",
-            "de-DE", "EUR",
-            "pl-PL", "PLN",
-            "en-GB", "GBP",
-            "sv-SE", "SEK"
-    );
-
     private static final Map<String, BigDecimal> BASE_PRICES_EUR = Map.of(
             "PROD-001", new BigDecimal("349.99"),
             "PROD-002", new BigDecimal("24.50")
     );
 
-    private static final Map<String, BigDecimal> FX = Map.of(
-            "EUR", BigDecimal.ONE,
-            "PLN", new BigDecimal("4.25"),
-            "GBP", new BigDecimal("0.86"),
-            "SEK", new BigDecimal("11.40")
-    );
+    private final AggregatorProperties props;
+
+    public MockPricingClient(AggregatorProperties props) {
+        this.props = props;
+    }
 
     @Override
     public PricingData fetchPricing(String productId, String market, String customerId) {
@@ -49,14 +42,15 @@ public class MockPricingClient implements PricingClient {
 
         log.debug("PricingService: fetched pricing product={} market={} customer={}", productId, market, customerId);
 
-        String currency = MARKET_CURRENCY.getOrDefault(market, "EUR");
-        BigDecimal fx = FX.getOrDefault(currency, BigDecimal.ONE);
+        MarketSettings marketSettings = props.getMarkets().get(market);
+        String currency = marketSettings != null ? marketSettings.getCurrency() : "EUR";
+        BigDecimal fx = marketSettings != null
+                ? BigDecimal.valueOf(marketSettings.getFx())
+                : BigDecimal.ONE;
         BigDecimal baseEur = BASE_PRICES_EUR.getOrDefault(productId, new BigDecimal("199.99"));
         BigDecimal basePrice = baseEur.multiply(fx).setScale(2, RoundingMode.HALF_UP);
 
-        BigDecimal discountPct = customerId != null
-                ? BigDecimal.valueOf(Math.abs(customerId.hashCode() % 16))
-                : BigDecimal.ZERO;
+        BigDecimal discountPct = resolveDiscountPercent(customerId);
 
         BigDecimal finalPrice = basePrice
                 .multiply(BigDecimal.ONE.subtract(discountPct.divide(new BigDecimal("100"))))
@@ -71,5 +65,26 @@ public class MockPricingClient implements PricingClient {
                 finalPrice,
                 LocalDate.now().plusDays(1).toString()
         );
+    }
+
+    private BigDecimal resolveDiscountPercent(String customerId) {
+        if (customerId == null || customerId.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+        int hash = Math.abs(customerId.hashCode());
+        String[] segments = {"DEALER", "WORKSHOP", "ENTERPRISE", "RETAIL"};
+        String segment = segments[hash % segments.length];
+        boolean premium = (hash % 5) == 0;
+
+        BigDecimal baseDiscount = switch (segment) {
+            case "DEALER" -> new BigDecimal("8");
+            case "WORKSHOP" -> new BigDecimal("5");
+            case "ENTERPRISE" -> new BigDecimal("12");
+            default -> new BigDecimal("2");
+        };
+        if (premium) {
+            baseDiscount = baseDiscount.add(new BigDecimal("3"));
+        }
+        return baseDiscount.min(new BigDecimal("20"));
     }
 }

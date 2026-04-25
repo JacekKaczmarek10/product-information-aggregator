@@ -124,20 +124,27 @@ Without parallelism, a sequential worst-case call (50+80+100+60ms = 290ms) would
 
 A timed-out optional future is cancelled immediately, freeing the thread without waiting.
 
-### 3. Thread isolation via executor
+### 3. Thread isolation + observability
 
-Upstream calls run on a separate `CachedThreadPool`, not on the HTTP request-handling threads (Tomcat's thread pool). This prevents slow upstream calls from starving the request handler. On Java 21 this would naturally become `Executors.newVirtualThreadPerTaskExecutor()` — the application.yml flag is already there for a zero-effort upgrade.
+Upstream calls run on a separate `CachedThreadPool`, not on the HTTP request-handling threads (Tomcat's thread pool). This prevents slow upstream calls from starving the request handler.
+
+The service now also adds:
+- `X-Correlation-Id` propagation via request filter (generated when missing)
+- Micrometer metrics:
+  - `aggregator.upstream.calls{service,status}`
+  - `aggregator.upstream.latency{service,status}`
 
 ### 4. No customer call when no customerId
 
 The Customer Service is only invoked when `customerId` is provided — not as an afterthought but as a design constraint. Calling it with no ID would be a wasted RPC and meaningless data. The future is immediately resolved as `CompletableFuture.completedFuture(null)`.
 
-### 5. Realistic mocks
+### 5. Realistic mocks + market configuration
 
 Mock clients simulate:
 - **Latency** — `Thread.sleep(base + random jitter)` per service specification
 - **Failures** — `ThreadLocalRandom.nextDouble() < failureRate` per call
 - **Deterministic data** — Product names, prices and stock levels are derived deterministically from productId + market, so the same request always returns consistent (if fictional) data — important for testing
+- **20+ configured markets** — currencies, FX multipliers, warehouses and delivery windows are read from `application.yml`, not hardcoded in client classes
 
 ### 6. Separation of concerns
 
@@ -156,11 +163,11 @@ Adding a new upstream service means: add a client in `service/upstream/`, add a 
 
 ## What I Would Do Differently With More Time
 
-**Circuit breakers** — `CompletableFuture.orTimeout` handles _individual_ timeouts but doesn't prevent a perpetually-failing service from being called on every request. I'd add [Resilience4j](https://resilience4j.readme.io/docs/circuitbreaker) circuit breakers: after N consecutive failures, open the circuit and return the degraded response immediately without waiting for the timeout.
+**Use Resilience4j instead of the lightweight breaker** — this implementation includes an in-house circuit breaker for optional services (threshold + open window) to keep dependencies minimal. In production I'd replace it with Resilience4j for richer states, events, and operational controls.
 
 **Caching** — Catalog data changes rarely; product specs don't change per request. A short-lived cache (e.g. Redis, Caffeine with a 60s TTL) would dramatically reduce upstream load and latency for popular products.
 
-**Observability** — I'd add structured logging with correlation IDs (one per request, propagated to every upstream call log line), Micrometer metrics (per-service call duration histograms, failure counters), and a `/actuator/health` probe that includes upstream health checks.
+**Observability depth** — correlation IDs and Micrometer upstream metrics are already in place. Next step would be explicit SLO dashboards/alerts and per-market performance breakdowns.
 
 **Graceful timeout budget** — Instead of per-service timeouts, I'd implement a shared deadline: take the current time, subtract from a total 250ms budget, and assign the remaining budget to whichever futures haven't resolved yet. This avoids the situation where all timeouts fire simultaneously but the total elapsed time exceeds the budget.
 

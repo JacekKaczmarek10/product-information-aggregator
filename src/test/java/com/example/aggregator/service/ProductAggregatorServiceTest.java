@@ -161,4 +161,31 @@ class ProductAggregatorServiceTest {
         assertThat(response.market()).isEqualTo("pl-PL");
         assertThat(response.language()).isEqualTo("pl");
     }
+
+    @Test
+    void optionalCircuitBreaker_shortCircuitsAfterThreshold() {
+        AggregatorProperties props = new AggregatorProperties();
+        props.setCatalogTimeoutMs(500);
+        props.setPricingTimeoutMs(500);
+        props.setAvailabilityTimeoutMs(500);
+        props.setCustomerTimeoutMs(500);
+        props.setOptionalFailureThreshold(2);
+        props.setOptionalCircuitOpenMs(60_000);
+
+        ProductAggregatorService breakerService = new ProductAggregatorService(
+                catalogClient, pricingClient, availabilityClient, customerClient,
+                Executors.newCachedThreadPool(), props, new SimpleMeterRegistry()
+        );
+
+        when(catalogClient.fetchProduct(any(), any())).thenReturn(CATALOG);
+        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(AVAILABILITY);
+        when(pricingClient.fetchPricing(any(), any(), any()))
+                .thenThrow(new UpstreamServiceException("PricingService", "down"));
+
+        breakerService.aggregate("PROD-001", "de-DE", "CUST-1");
+        breakerService.aggregate("PROD-001", "de-DE", "CUST-1");
+        breakerService.aggregate("PROD-001", "de-DE", "CUST-1");
+
+        verify(pricingClient, times(2)).fetchPricing(any(), any(), any());
+    }
 }
