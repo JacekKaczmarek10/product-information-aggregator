@@ -3,8 +3,8 @@ package pl.kaczmarek.aggregator.service.upstream;
 import pl.kaczmarek.aggregator.config.AggregatorConfig.AggregatorProperties;
 import pl.kaczmarek.aggregator.config.AggregatorConfig.MarketSettings;
 import pl.kaczmarek.aggregator.model.upstream.PricingData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -17,9 +17,9 @@ import java.util.Map;
  * Typical latency: ~80ms  |  Reliability: 99.5%
  */
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class MockPricingClient implements PricingClient {
-
-    private static final Logger log = LoggerFactory.getLogger(MockPricingClient.class);
     private static final double FAILURE_RATE = 0.005; // 0.5%
     private static final int BASE_LATENCY_MS = 70;
     private static final int JITTER_MS = 20;
@@ -30,10 +30,6 @@ public class MockPricingClient implements PricingClient {
     );
 
     private final AggregatorProperties props;
-
-    public MockPricingClient(AggregatorProperties props) {
-        this.props = props;
-    }
 
     @Override
     public PricingData fetchPricing(String productId, String market, String customerId) {

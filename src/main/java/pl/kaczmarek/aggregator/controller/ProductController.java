@@ -12,21 +12,19 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/products")
-@Validated
+@RequiredArgsConstructor
 @Tag(name = "Product Aggregator", description = "Aggregates product information from multiple upstream services")
 public class ProductController {
 
     private final ProductAggregatorService aggregatorService;
-
-    public ProductController(ProductAggregatorService aggregatorService) {
-        this.aggregatorService = aggregatorService;
-    }
 
     @GetMapping("/{productId}")
     @Operation(

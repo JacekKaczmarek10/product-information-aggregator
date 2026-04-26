@@ -3,8 +3,8 @@ package pl.kaczmarek.aggregator.service.upstream;
 import pl.kaczmarek.aggregator.config.AggregatorConfig.AggregatorProperties;
 import pl.kaczmarek.aggregator.config.AggregatorConfig.MarketSettings;
 import pl.kaczmarek.aggregator.model.upstream.CatalogData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -16,9 +16,9 @@ import java.util.concurrent.ThreadLocalRandom;
  * Typical latency: ~50ms  |  Reliability: 99.9%
  */
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class MockCatalogClient implements CatalogClient {
-
-    private static final Logger log = LoggerFactory.getLogger(MockCatalogClient.class);
     private static final double FAILURE_RATE = 0.001; // 0.1%
     private static final int BASE_LATENCY_MS = 40;
     private static final int JITTER_MS = 20;
@@ -38,10 +38,6 @@ public class MockCatalogClient implements CatalogClient {
             )
     );
     private final AggregatorProperties props;
-
-    public MockCatalogClient(AggregatorProperties props) {
-        this.props = props;
-    }
 
     @Override
     public CatalogData fetchProduct(String productId, String market) {

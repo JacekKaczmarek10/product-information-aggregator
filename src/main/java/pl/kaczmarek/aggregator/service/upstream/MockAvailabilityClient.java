@@ -3,8 +3,8 @@ package pl.kaczmarek.aggregator.service.upstream;
 import pl.kaczmarek.aggregator.config.AggregatorConfig.AggregatorProperties;
 import pl.kaczmarek.aggregator.config.AggregatorConfig.MarketSettings;
 import pl.kaczmarek.aggregator.model.upstream.AvailabilityData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -14,18 +14,14 @@ import java.util.concurrent.ThreadLocalRandom;
  * Typical latency: ~100ms  |  Reliability: 98%
  */
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class MockAvailabilityClient implements AvailabilityClient {
-
-    private static final Logger log = LoggerFactory.getLogger(MockAvailabilityClient.class);
     private static final double FAILURE_RATE = 0.02; // 2%
     private static final int BASE_LATENCY_MS = 90;
     private static final int JITTER_MS = 20;
 
     private final AggregatorProperties props;
-
-    public MockAvailabilityClient(AggregatorProperties props) {
-        this.props = props;
-    }
 
     @Override
     public AvailabilityData fetchAvailability(String productId, String market) {

@@ -3,28 +3,34 @@ package pl.kaczmarek.aggregator.service;
 import pl.kaczmarek.aggregator.config.AggregatorConfig.AggregatorProperties;
 import pl.kaczmarek.aggregator.exception.CatalogUnavailableException;
 import pl.kaczmarek.aggregator.model.response.ProductResponse;
-import pl.kaczmarek.aggregator.model.upstream.*;
-import pl.kaczmarek.aggregator.service.upstream.*;
+import pl.kaczmarek.aggregator.service.upstream.MockAvailabilityClient;
+import pl.kaczmarek.aggregator.service.upstream.MockCatalogClient;
+import pl.kaczmarek.aggregator.service.upstream.MockCustomerClient;
+import pl.kaczmarek.aggregator.service.upstream.MockPricingClient;
+import pl.kaczmarek.aggregator.service.aggregation.OptionalUpstreamCoordinator;
+import pl.kaczmarek.aggregator.service.aggregation.ProductResponseMapper;
+import pl.kaczmarek.aggregator.service.aggregation.RequiredCatalogResolver;
+import pl.kaczmarek.aggregator.service.aggregation.UpstreamInstrumentation;
+import pl.kaczmarek.aggregator.service.upstream.UpstreamServiceException;
+import pl.kaczmarek.aggregator.testsupport.UpstreamTestFixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import pl.kaczmarek.aggregator.model.upstream.AvailabilityData;
-import pl.kaczmarek.aggregator.model.upstream.CatalogData;
-import pl.kaczmarek.aggregator.model.upstream.CustomerData;
-import pl.kaczmarek.aggregator.model.upstream.PricingData;
-import pl.kaczmarek.aggregator.service.upstream.*;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ProductAggregatorServiceTest {
@@ -40,25 +46,6 @@ class ProductAggregatorServiceTest {
 
     ProductAggregatorService service;
 
-    private static final CatalogData CATALOG = new CatalogData(
-            "PROD-001", "Pump", "A pump", "Hydraulics", "AgroTech",
-            Map.of("weight_kg", "4.2"), List.of("img1.jpg"), "Hydraulik Pumpe", "Hochleistungspumpe"
-    );
-
-    private static final PricingData PRICING = new PricingData(
-            "PROD-001", "de-DE", "EUR",
-            new BigDecimal("349.99"), BigDecimal.TEN,
-            new BigDecimal("314.99"), "2026-04-25"
-    );
-
-    private static final AvailabilityData AVAILABILITY = new AvailabilityData(
-            "PROD-001", 20, "Frankfurt, DE", "1-2 business days", true
-    );
-
-    private static final CustomerData CUSTOMER = new CustomerData(
-            "CUST-1", "DEALER", List.of("Hydraulics"), "de", false
-    );
-
     @BeforeEach
     void setUp() {
         AggregatorProperties props = new AggregatorProperties();
@@ -66,18 +53,28 @@ class ProductAggregatorServiceTest {
         props.setPricingTimeoutMs(500);
         props.setAvailabilityTimeoutMs(500);
         props.setCustomerTimeoutMs(500);
-        service = new ProductAggregatorService(
+        service = createService(props);
+    }
+
+    private ProductAggregatorService createService(AggregatorProperties props) {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        UpstreamInstrumentation instrumentation = new UpstreamInstrumentation(registry);
+        ExecutorService executor = Executors.newCachedThreadPool();
+        return new ProductAggregatorService(
                 catalogClient, pricingClient, availabilityClient, customerClient,
-                Executors.newCachedThreadPool(), props, new SimpleMeterRegistry()
+                executor, props,
+                new RequiredCatalogResolver(props, instrumentation),
+                new OptionalUpstreamCoordinator(executor, props, instrumentation),
+                new ProductResponseMapper()
         );
     }
 
     @Test
     void fullResponse_whenAllServicesSucceed() {
-        when(catalogClient.fetchProduct(any(), any())).thenReturn(CATALOG);
-        when(pricingClient.fetchPricing(any(), any(), any())).thenReturn(PRICING);
-        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(AVAILABILITY);
-        when(customerClient.fetchCustomer(any())).thenReturn(CUSTOMER);
+        when(catalogClient.fetchProduct(any(), any())).thenReturn(UpstreamTestFixtures.defaultCatalog());
+        when(pricingClient.fetchPricing(any(), any(), any())).thenReturn(UpstreamTestFixtures.defaultPricing());
+        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(UpstreamTestFixtures.defaultAvailability());
+        when(customerClient.fetchCustomer(any())).thenReturn(UpstreamTestFixtures.defaultCustomer());
 
         ProductResponse response = service.aggregate("PROD-001", "de-DE", "CUST-1");
 
@@ -101,10 +98,10 @@ class ProductAggregatorServiceTest {
 
     @Test
     void partialResponse_whenPricingFails() {
-        when(catalogClient.fetchProduct(any(), any())).thenReturn(CATALOG);
+        when(catalogClient.fetchProduct(any(), any())).thenReturn(UpstreamTestFixtures.defaultCatalog());
         when(pricingClient.fetchPricing(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("PricingService", "transient"));
-        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(AVAILABILITY);
+        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(UpstreamTestFixtures.defaultAvailability());
 
         ProductResponse response = service.aggregate("PROD-001", "de-DE", null);
 
@@ -117,8 +114,8 @@ class ProductAggregatorServiceTest {
 
     @Test
     void partialResponse_whenAvailabilityFails() {
-        when(catalogClient.fetchProduct(any(), any())).thenReturn(CATALOG);
-        when(pricingClient.fetchPricing(any(), any(), any())).thenReturn(PRICING);
+        when(catalogClient.fetchProduct(any(), any())).thenReturn(UpstreamTestFixtures.defaultCatalog());
+        when(pricingClient.fetchPricing(any(), any(), any())).thenReturn(UpstreamTestFixtures.defaultPricing());
         when(availabilityClient.fetchAvailability(any(), any()))
                 .thenThrow(new UpstreamServiceException("AvailabilityService", "transient"));
 
@@ -131,9 +128,9 @@ class ProductAggregatorServiceTest {
 
     @Test
     void noPersonalization_whenNoCustomerId() {
-        when(catalogClient.fetchProduct(any(), any())).thenReturn(CATALOG);
-        when(pricingClient.fetchPricing(any(), any(), isNull())).thenReturn(PRICING);
-        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(AVAILABILITY);
+        when(catalogClient.fetchProduct(any(), any())).thenReturn(UpstreamTestFixtures.defaultCatalog());
+        when(pricingClient.fetchPricing(any(), any(), isNull())).thenReturn(UpstreamTestFixtures.defaultPricing());
+        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(UpstreamTestFixtures.defaultAvailability());
 
         ProductResponse response = service.aggregate("PROD-001", "de-DE", null);
 
@@ -144,9 +141,9 @@ class ProductAggregatorServiceTest {
 
     @Test
     void partialResponse_whenCustomerServiceFails() {
-        when(catalogClient.fetchProduct(any(), any())).thenReturn(CATALOG);
-        when(pricingClient.fetchPricing(any(), any(), any())).thenReturn(PRICING);
-        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(AVAILABILITY);
+        when(catalogClient.fetchProduct(any(), any())).thenReturn(UpstreamTestFixtures.defaultCatalog());
+        when(pricingClient.fetchPricing(any(), any(), any())).thenReturn(UpstreamTestFixtures.defaultPricing());
+        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(UpstreamTestFixtures.defaultAvailability());
         when(customerClient.fetchCustomer(any()))
                 .thenThrow(new UpstreamServiceException("CustomerService", "transient"));
 
@@ -154,16 +151,15 @@ class ProductAggregatorServiceTest {
 
         assertThat(response.dataStatus().personalized()).isFalse();
         assertThat(response.personalization()).isNull();
-        // Core data is still present
         assertThat(response.dataStatus().catalogOk()).isTrue();
         assertThat(response.dataStatus().pricingAvailable()).isTrue();
     }
 
     @Test
     void response_containsMarketAndLanguage() {
-        when(catalogClient.fetchProduct(any(), any())).thenReturn(CATALOG);
-        when(pricingClient.fetchPricing(any(), any(), any())).thenReturn(PRICING);
-        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(AVAILABILITY);
+        when(catalogClient.fetchProduct(any(), any())).thenReturn(UpstreamTestFixtures.defaultCatalog());
+        when(pricingClient.fetchPricing(any(), any(), any())).thenReturn(UpstreamTestFixtures.defaultPricing());
+        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(UpstreamTestFixtures.defaultAvailability());
 
         ProductResponse response = service.aggregate("PROD-001", "pl-PL", null);
 
@@ -181,13 +177,10 @@ class ProductAggregatorServiceTest {
         props.setOptionalFailureThreshold(2);
         props.setOptionalCircuitOpenMs(60_000);
 
-        ProductAggregatorService breakerService = new ProductAggregatorService(
-                catalogClient, pricingClient, availabilityClient, customerClient,
-                Executors.newCachedThreadPool(), props, new SimpleMeterRegistry()
-        );
+        ProductAggregatorService breakerService = createService(props);
 
-        when(catalogClient.fetchProduct(any(), any())).thenReturn(CATALOG);
-        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(AVAILABILITY);
+        when(catalogClient.fetchProduct(any(), any())).thenReturn(UpstreamTestFixtures.defaultCatalog());
+        when(availabilityClient.fetchAvailability(any(), any())).thenReturn(UpstreamTestFixtures.defaultAvailability());
         when(pricingClient.fetchPricing(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("PricingService", "down"));
 

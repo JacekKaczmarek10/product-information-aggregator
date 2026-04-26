@@ -1,8 +1,7 @@
 package pl.kaczmarek.aggregator.service.upstream;
 
 import pl.kaczmarek.aggregator.model.upstream.CustomerData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -13,9 +12,8 @@ import java.util.List;
  * Only called when a customerId is provided.
  */
 @Component
+@Slf4j
 public class MockCustomerClient implements CustomerClient {
-
-    private static final Logger log = LoggerFactory.getLogger(MockCustomerClient.class);
     private static final double FAILURE_RATE = 0.01;
     private static final int BASE_LATENCY_MS = 50;
     private static final int JITTER_MS = 20;
