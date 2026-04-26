@@ -25,5 +25,8 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
-      - name: Maven verify
-        run: mvn -B -ntp verify
+      - name: Build
+        run: mvn -B -ntp clean compile
+
+      - name: Run tests
+        run: mvn -B -ntp test
