@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
-@Component
 @Slf4j
+@Component
 public class OptionalUpstreamCoordinator {
 
     private final ExecutorService executor;

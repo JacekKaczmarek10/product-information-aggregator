@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.*;
 
 @Validated
 @RestController
-@RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
+@RequestMapping("/api/v1/products")
 @Tag(name = "Product Aggregator", description = "Aggregates product information from multiple upstream services")
 public class ProductController {
 
