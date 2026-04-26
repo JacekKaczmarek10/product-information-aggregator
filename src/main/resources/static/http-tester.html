@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Aggregator — HTTP tester</title>
+    <style>
+        :root {
+            font-family: "Segoe UI", system-ui, sans-serif;
+            --bg: #0f1419;
+            --panel: #1a2332;
+            --border: #2d3a4f;
+            --text: #e7ecf3;
+            --muted: #8b9cb3;
+            --accent: #3d8bfd;
+            --error: #f4717a;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .wrap {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+        h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 0.5rem; }
+        .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+        form {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            display: grid;
+            gap: 1rem;
+        }
+        label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
+        input, select {
+            width: 100%;
+            padding: 0.55rem 0.65rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+        input:focus, select:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+        button {
+            justify-self: start;
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .meta {
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: var(--muted);
+            word-break: break-all;
+        }
+        pre {
+            margin: 1rem 0 0;
+            padding: 1rem;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: auto;
+            max-height: 60vh;
+            font-size: 0.8rem;
+            line-height: 1.45;
+        }
+        .err { color: var(--error); }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Product Information Aggregator</h1>
+    <p class="sub">Send a <code>GET</code> to <code>/api/v1/products/{id}</code> from this origin (same app — no cross-origin setup).</p>
+
+    <form id="f" autocomplete="off">
+        <div class="row">
+            <div>
+                <label for="productId">Product ID</label>
+                <input id="productId" name="productId" value="PROD-001" required>
+            </div>
+            <div>
+                <label for="market">Market (ll-CC)</label>
+                <select id="market" name="market">
+                    <option value="nl-NL">nl-NL</option>
+                    <option value="de-DE">de-DE</option>
+                    <option value="pl-PL" selected>pl-PL</option>
+                    <option value="fr-FR">fr-FR</option>
+                </select>
+            </div>
+        </div>
+        <div>
+            <label for="customerId">Customer ID (optional)</label>
+            <input id="customerId" name="customerId" placeholder="e.g. CUST-42">
+        </div>
+        <button type="submit" id="btn">Send request</button>
+    </form>
+
+    <div class="meta" id="meta"></div>
+    <pre id="out">Response will appear here (JSON).</pre>
+</div>
+<script>
+(function () {
+    const form = document.getElementById('f');
+    const out = document.getElementById('out');
+    const meta = document.getElementById('meta');
+    const btn = document.getElementById('btn');
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const productId = document.getElementById('productId').value.trim();
+        const market = document.getElementById('market').value;
+        const customerId = document.getElementById('customerId').value.trim();
+
+        const params = new URLSearchParams({ market: market });
+        if (customerId) params.set('customerId', customerId);
+
+        const url = '/api/v1/products/' + encodeURIComponent(productId) + '?' + params.toString();
+        meta.textContent = 'GET ' + url;
+        out.textContent = 'Loading…';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const text = await res.text();
+            let body;
+            try {
+                body = JSON.stringify(JSON.parse(text), null, 2);
+            } catch {
+                body = text;
+            }
+            out.className = res.ok ? '' : 'err';
+            out.textContent = res.status + ' ' + res.statusText + '\n\n' + body;
+        } catch (err) {
+            out.className = 'err';
+            out.textContent = String(err);
+        } finally {
+            btn.disabled = false;
+        }
+    });
+})();
+</script>
+</body>
+</html>

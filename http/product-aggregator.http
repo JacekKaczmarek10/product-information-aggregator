@@ -1,0 +1,27 @@
+### Product Information Aggregator — sample requests
+
+@host = http://localhost:8080
+@product = PROD-001
+
+### Full response (NL market + customer)
+GET {{host}}/api/v1/products/{{product}}?market=nl-NL&customerId=CUST-42
+Accept: application/json
+
+### Poland, no personalization
+GET {{host}}/api/v1/products/{{product}}?market=pl-PL
+Accept: application/json
+
+### Germany, second product
+GET {{host}}/api/v1/products/PROD-002?market=de-DE&customerId=CUST-7
+Accept: application/json
+
+### 400 — invalid market format (on purpose)
+GET {{host}}/api/v1/products/{{product}}?market=invalid
+Accept: application/json
+
+### Swagger UI (OpenAPI + Try it out)
+# Browser: http://localhost:8080/swagger-ui.html
+
+### Actuator health (if exposed)
+GET {{host}}/actuator/health
+Accept: application/json
