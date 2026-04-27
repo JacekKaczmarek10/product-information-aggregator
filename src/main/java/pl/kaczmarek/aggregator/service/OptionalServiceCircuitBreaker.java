@@ -3,9 +3,6 @@ package pl.kaczmarek.aggregator.service;
 import java.time.Clock;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Lightweight circuit breaker for optional upstream services.
- */
 public class OptionalServiceCircuitBreaker {
 
     private final int failureThreshold;

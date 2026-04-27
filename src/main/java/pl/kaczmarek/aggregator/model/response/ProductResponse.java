@@ -5,11 +5,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import lombok.experimental.FieldNameConstants;
 
-/**
- * The aggregated product response returned to the client.
- * Fields are nullable — clients must check the status flags when data is unavailable.
- */
+@FieldNameConstants
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ProductResponse(
         String productId,

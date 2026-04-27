@@ -9,9 +9,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Shared upstream DTOs for unit and integration tests.
- */
 public final class UpstreamTestFixtures {
 
     private UpstreamTestFixtures() {
@@ -63,7 +60,6 @@ public final class UpstreamTestFixtures {
         );
     }
 
-    /** Used when tests need availability data distinct from {@link #defaultAvailability()}. */
     public static AvailabilityData availabilityFrankfurtLowStock() {
         return new AvailabilityData(
                 "PROD-001",

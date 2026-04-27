@@ -31,7 +31,7 @@ public class ProductController {
             summary = "Get aggregated product information",
             description = """
                     Returns aggregated product information combining Catalog, Pricing, Availability,
-                    and optionally Customer data. Catalog data is required — if unavailable, returns 503.
+                    and optionally Customer data. Catalog data is required if unavailable, returns 503.
                     Pricing and Availability failures yield a partial response with status flags.
                     """
     )

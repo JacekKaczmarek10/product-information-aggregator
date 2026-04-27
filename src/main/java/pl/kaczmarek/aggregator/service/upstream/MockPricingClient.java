@@ -12,10 +12,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Map;
 
-/**
- * Mock Pricing Service.
- * Typical latency: ~80ms  |  Reliability: 99.5%
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j

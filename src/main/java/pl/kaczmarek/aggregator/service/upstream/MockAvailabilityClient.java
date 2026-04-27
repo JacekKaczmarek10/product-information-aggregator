@@ -9,10 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * Mock Availability Service.
- * Typical latency: ~100ms  |  Reliability: 98%
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -45,7 +41,7 @@ public class MockAvailabilityClient implements AvailabilityClient {
                 productId,
                 stockLevel,
                 warehouse,
-                stockLevel > 0 ? delivery : "Out of stock — backorder available",
+                stockLevel > 0 ? delivery : "Out of stock: backorder available",
                 stockLevel > 0
         );
     }

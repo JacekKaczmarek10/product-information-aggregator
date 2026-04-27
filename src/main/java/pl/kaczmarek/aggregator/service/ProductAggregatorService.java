@@ -19,9 +19,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-/**
- * Orchestrates concurrent upstream calls and delegates result handling to focused collaborators.
- */
 @Service
 public class ProductAggregatorService {
 
@@ -36,15 +33,15 @@ public class ProductAggregatorService {
     private final ProductResponseMapper responseMapper;
 
     public ProductAggregatorService(
-            CatalogClient catalogClient,
-            PricingClient pricingClient,
-            AvailabilityClient availabilityClient,
-            CustomerClient customerClient,
-            ExecutorService executor,
-            AggregatorProperties props,
-            RequiredCatalogResolver catalogResolver,
-            OptionalUpstreamCoordinator optionalUpstream,
-            ProductResponseMapper responseMapper) {
+        CatalogClient catalogClient,
+        PricingClient pricingClient,
+        AvailabilityClient availabilityClient,
+        CustomerClient customerClient,
+        ExecutorService executor,
+        AggregatorProperties props,
+        RequiredCatalogResolver catalogResolver,
+        OptionalUpstreamCoordinator optionalUpstream,
+        ProductResponseMapper responseMapper) {
         this.catalogClient = catalogClient;
         this.pricingClient = pricingClient;
         this.availabilityClient = availabilityClient;
@@ -60,40 +57,41 @@ public class ProductAggregatorService {
         String language = responseMapper.extractLanguage(market);
 
         CompletableFuture<CatalogData> catalogFuture = catalogResolver.submit(
-                () -> catalogClient.fetchProduct(productId, market),
-                executor
+            () -> catalogClient.fetchProduct(productId, market),
+            executor
         );
 
         CompletableFuture<PricingData> pricingFuture = optionalUpstream.submitOptional(
-                "pricing",
-                () -> pricingClient.fetchPricing(productId, market, customerId),
-                props.getPricingTimeoutMs(),
-                productId
+            ProductResponse.Fields.pricing,
+            () -> pricingClient.fetchPricing(productId, market, customerId),
+            props.getPricingTimeoutMs(),
+            productId
         );
 
         CompletableFuture<AvailabilityData> availabilityFuture = optionalUpstream.submitOptional(
-                "availability",
-                () -> availabilityClient.fetchAvailability(productId, market),
-                props.getAvailabilityTimeoutMs(),
-                productId
+            ProductResponse.Fields.availability,
+            () -> availabilityClient.fetchAvailability(productId, market),
+            props.getAvailabilityTimeoutMs(),
+            productId
         );
 
         CompletableFuture<CustomerData> customerFuture = (customerId != null && !customerId.isBlank())
-                ? optionalUpstream.submitOptional(
-                        "customer",
-                        () -> customerClient.fetchCustomer(customerId),
-                        props.getCustomerTimeoutMs(),
-                        productId
-                )
-                : CompletableFuture.completedFuture(null);
+            ? optionalUpstream.submitOptional(
+            "customer",
+            () -> customerClient.fetchCustomer(customerId),
+            props.getCustomerTimeoutMs(),
+            productId
+        )
+            : CompletableFuture.completedFuture(null);
 
         CatalogData catalog = catalogResolver.await(catalogFuture, productId);
 
-        Optional<PricingData> pricing = optionalUpstream.awaitOptional(pricingFuture, "PricingService", "pricing", productId);
+        Optional<PricingData> pricing =
+            optionalUpstream.awaitOptional(pricingFuture, "PricingService", "pricing", productId);
         Optional<AvailabilityData> availability = optionalUpstream.awaitOptional(
-                availabilityFuture, "AvailabilityService", "availability", productId);
+            availabilityFuture, "AvailabilityService", "availability", productId);
         Optional<CustomerData> customer = optionalUpstream.awaitOptional(
-                customerFuture, "CustomerService", "customer", productId);
+            customerFuture, "CustomerService", "customer", productId);
 
         return responseMapper.toResponse(productId, market, language, catalog, pricing, availability, customer);
     }

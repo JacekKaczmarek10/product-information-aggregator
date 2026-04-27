@@ -6,11 +6,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * Mock Customer Service.
- * Typical latency: ~60ms  |  Reliability: 99%
- * Only called when a customerId is provided.
- */
 @Component
 @Slf4j
 public class MockCustomerClient implements CustomerClient {

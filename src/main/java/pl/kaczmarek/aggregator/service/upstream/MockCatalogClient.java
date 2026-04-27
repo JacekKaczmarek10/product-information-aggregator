@@ -11,10 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * Mock Catalog Service.
- * Typical latency: ~50ms  |  Reliability: 99.9%
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
