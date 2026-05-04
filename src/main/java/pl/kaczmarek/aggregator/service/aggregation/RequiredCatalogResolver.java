@@ -2,6 +2,7 @@ package pl.kaczmarek.aggregator.service.aggregation;
 
 import pl.kaczmarek.aggregator.config.AggregatorConfig.AggregatorProperties;
 import pl.kaczmarek.aggregator.exception.CatalogUnavailableException;
+import pl.kaczmarek.aggregator.exception.ProductNotFoundException;
 import pl.kaczmarek.aggregator.model.upstream.CatalogData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,9 @@ public class RequiredCatalogResolver {
             throw catalogUnavailable(productId, e, "timeout", startNanos);
         } catch (ExecutionException e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
+            if (cause instanceof ProductNotFoundException pnfe) {
+                throw pnfe;
+            }
             if (cause instanceof TimeoutException) {
                 throw catalogUnavailable(productId, cause, "timeout", startNanos);
             }

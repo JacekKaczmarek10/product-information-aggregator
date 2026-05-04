@@ -2,6 +2,7 @@ package pl.kaczmarek.aggregator.service.upstream;
 
 import pl.kaczmarek.aggregator.config.AggregatorConfig.AggregatorProperties;
 import pl.kaczmarek.aggregator.config.AggregatorConfig.MarketSettings;
+import pl.kaczmarek.aggregator.exception.ProductNotFoundException;
 import pl.kaczmarek.aggregator.model.upstream.CatalogData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Component
@@ -18,6 +20,11 @@ public class MockCatalogClient implements CatalogClient {
     private static final double FAILURE_RATE = 0.001; // 0.1%
     private static final int BASE_LATENCY_MS = 40;
     private static final int JITTER_MS = 20;
+
+    static final Set<String> KNOWN_PRODUCT_IDS = Set.of(
+            "PROD-001", "PROD-002", "PROD-003", "PROD-004", "PROD-005",
+            "FILTER-100", "PUMP-200", "VALVE-300", "SENSOR-400", "BEARING-500"
+    );
 
     private static final Map<String, Map<String, String>> LOCALIZED_NAMES = Map.of(
             "nl-NL", Map.of(
@@ -39,6 +46,10 @@ public class MockCatalogClient implements CatalogClient {
     public CatalogData fetchProduct(String productId, String market) {
         simulateLatency(BASE_LATENCY_MS, JITTER_MS);
         simulateFailure("CatalogService", FAILURE_RATE);
+
+        if (!KNOWN_PRODUCT_IDS.contains(productId)) {
+            throw new ProductNotFoundException(productId);
+        }
 
         log.debug("CatalogService: fetched product={} market={}", productId, market);
 

@@ -13,6 +13,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleProductNotFound(ProductNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of(404, "PRODUCT_NOT_FOUND", ex.getMessage()));
+    }
+
     @ExceptionHandler(CatalogUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleCatalogUnavailable(CatalogUnavailableException ex) {
         log.error("Catalog unavailable: {}", ex.getMessage());

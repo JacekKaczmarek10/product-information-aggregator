@@ -39,12 +39,15 @@ public class ProductController {
             @ApiResponse(responseCode = "200", description = "Product found (may be partial if optional services degraded)"),
             @ApiResponse(responseCode = "400", description = "Invalid request parameters",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Product not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "503", description = "Catalog service unavailable",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<ProductResponse> getProduct(
             @PathVariable
             @NotBlank
+            @Pattern(regexp = "[A-Z0-9][A-Z0-9\\-]{1,19}", message = "productId must be 2-20 uppercase alphanumeric characters, optionally with hyphens")
             @Parameter(description = "Product identifier", example = "PROD-001")
             String productId,
 
